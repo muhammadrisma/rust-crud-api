@@ -20,19 +20,16 @@ static DB_URL: Lazy<String> = Lazy::new(|| {
     env::var("DATABASE_URL").expect("DATABASE_URL must be set")
 });
 
-// constants
 const OK_RESPONSE: &str = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n";
 const NOT_FOUND: &str = "HTTP/1.1 404 NOT FOUND\r\n\r\n";
 const INTERNAL_ERROR: &str = "HTTP/1.1 500 INTERNAL ERROR\r\n\r\n";
 
-fn main() {
-    // set database
+fn main() 
     if let Err(e) = set_database() {
         eprintln!("Error setting database: {e}");
         return;
     }
 
-    // start server and print port
     let listener = TcpListener::bind("0.0.0.0:8080").expect("bind 0.0.0.0:8080");
     println!("Server listening on port 8080");
 
@@ -44,7 +41,6 @@ fn main() {
     }
 }
 
-// handle requests
 fn handle_client(mut stream: TcpStream) {
     let mut buffer = [0; 4096];
     let mut request = String::new();
@@ -70,11 +66,9 @@ fn handle_client(mut stream: TcpStream) {
     }
 }
 
-// handle POST /users
 fn handle_post_request(request: &str) -> (String, String) {
     match (get_user_request_body(request), Client::connect(DB_URL.as_str(), NoTls)) {
         (Ok(user), Ok(mut client)) => {
-            // RETURNING id so we can respond with created user
             match client.query_one(
                 "INSERT INTO users (name, email) VALUES ($1, $2) RETURNING id, name, email",
                 &[&user.name, &user.email],
@@ -94,7 +88,6 @@ fn handle_post_request(request: &str) -> (String, String) {
     }
 }
 
-// handle GET /users/{id}
 fn handle_get_request(request: &str) -> (String, String) {
     match (get_id(request).parse::<i32>(), Client::connect(DB_URL.as_str(), NoTls)) {
         (Ok(id), Ok(mut client)) => match client.query_opt(
@@ -116,7 +109,6 @@ fn handle_get_request(request: &str) -> (String, String) {
     }
 }
 
-// handle GET /users
 fn handle_get_all_request(_request: &str) -> (String, String) {
     match Client::connect(DB_URL.as_str(), NoTls) {
         Ok(mut client) => match client.query("SELECT id, name, email FROM users", &[]) {
@@ -137,7 +129,6 @@ fn handle_get_all_request(_request: &str) -> (String, String) {
     }
 }
 
-// handle PUT /users/{id}
 fn handle_put_request(request: &str) -> (String, String) {
     match (
         get_id(request).parse::<i32>(),
@@ -158,7 +149,6 @@ fn handle_put_request(request: &str) -> (String, String) {
     }
 }
 
-// handle DELETE /users/{id}
 fn handle_delete_request(request: &str) -> (String, String) {
     match (get_id(request).parse::<i32>(), Client::connect(DB_URL.as_str(), NoTls)) {
         (Ok(id), Ok(mut client)) => match client.execute("DELETE FROM users WHERE id = $1", &[&id]) {
@@ -170,7 +160,6 @@ fn handle_delete_request(request: &str) -> (String, String) {
     }
 }
 
-// db setup
 fn set_database() -> Result<(), PostgresError> {
     let mut client = Client::connect(DB_URL.as_str(), NoTls)?;
     client.batch_execute(
@@ -185,7 +174,6 @@ fn set_database() -> Result<(), PostgresError> {
     Ok(())
 }
 
-// Get id from request URL
 fn get_id(request: &str) -> &str {
     request
         .split('/')
@@ -196,7 +184,6 @@ fn get_id(request: &str) -> &str {
         .unwrap_or_default()
 }
 
-// deserialize user from request body without id
 fn get_user_request_body(request: &str) -> Result<User, serde_json::Error> {
     serde_json::from_str(request.split("\r\n\r\n").last().unwrap_or_default())
 }
